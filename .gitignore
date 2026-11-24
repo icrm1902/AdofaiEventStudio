@@ -1,0 +1,19 @@
+# 构建产物
+dist/
+bin/
+obj/
+bin-tests/
+*.zip
+*.pdb
+*.dll
+*.exe
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# 系统
+Thumbs.db
+.DS_Store
