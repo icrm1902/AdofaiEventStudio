@@ -8,7 +8,7 @@
 
 在编辑器左侧的「事件工坊」页签中，可以批量生成、复制、调整和删除事件与装饰，并用表达式批量计算参数。
 
-> 作者：橚 ｜ 当前版本：1.0.0 ｜ 许可证：MIT
+> 作者：橚 ｜ 当前版本：1.0.1 ｜ 许可证：MIT
 
 ---
 
@@ -18,8 +18,10 @@
 - **批量装饰**：支持 `AddDecoration`、`AddText`、`AddObject`、`AddParticle`。
 - **推广动画**：复制源楼层的 `MoveDecorations` 动画，批量改变标签和角度偏移。
 - **批量调整**：批量移动事件楼层，或对数值参数做运算。
+- **批量调整装饰**：按装饰类型和所在楼层批量修改装饰参数（1.0.1 新增）。
 - **批量删除**：按事件类型和楼层范围删除。
 - **表达式**：`i` / `n` / `v` 变量，`pi` / `e` 常数，四则运算与常用数学函数，还有 `inc`、`random` 和文本序号 `a[1]`。
+- **多括号文本**：一个文本里可以写多个 `[表达式]`，用「[]读取次数」控制依次替换几个（1.0.1 新增）。
 - **文件工具**：载入、解析 `.adofai`，另存为新文件（不覆盖源文件）。
 - **撤销**：所有批量操作只改内存，保存前可用游戏原生撤销栈回退。
 - **双语界面**：跟随游戏 / 中文 / English。
@@ -27,7 +29,7 @@
 ## 安装
 
 1. 安装 [Unity Mod Manager](https://www.nexusmods.com/site/mods/21)（本模组基于 `ManagerVersion 0.32.4.0`）。
-2. 从 [Releases](https://github.com/ICRM1902/AdofaiEventStudio/releases) 下载 `AdofaiEventStudio-1.0.0.zip`。
+2. 从 [Releases](https://github.com/ICRM1902/AdofaiEventStudio/releases) 下载 `AdofaiEventStudio-1.0.1.zip`。
 3. 用 UMM 的 **Install Mod** 直接安装，或解压到：
 
 ```text
@@ -73,7 +75,7 @@ random(0, 1) * 10 - 5
 dist\
   AdofaiEventStudio.dll
   Info.json
-..\AdofaiEventStudio-1.0.0.zip
+..\AdofaiEventStudio-1.0.1.zip
 ```
 
 构建脚本默认还会运行冒烟测试和 UMM 入口测试；跳过测试：

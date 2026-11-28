@@ -2,7 +2,7 @@
   "Id": "AdofaiEventStudio",
   "DisplayName": "ADOFAI 事件工坊",
   "Author": "橚",
-  "Version": "1.0.0",
+  "Version": "1.0.1",
   "ManagerVersion": "0.32.4.0",
   "AssemblyName": "AdofaiEventStudio.dll",
   "EntryMethod": "AdofaiEventStudio.Main.Load"

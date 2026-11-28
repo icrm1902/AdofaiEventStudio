@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using ADOFAI;
 using ADOFAI.LevelEditor.Controls;
 using Newtonsoft.Json;
@@ -27,6 +28,8 @@ namespace AdofaiEventStudio
         ParamEventMenu,
         ParamKeyMenu,
         ParamForm,
+        DecorationAdjustMenu,
+        DecorationAdjustForm,
         DeleteEventMenu,
         DeleteForm
     }
@@ -156,6 +159,12 @@ namespace AdofaiEventStudio
                 case PanelMode.ParamForm:
                     BuildParamForm();
                     break;
+                case PanelMode.DecorationAdjustMenu:
+                    BuildDecorationAdjustMenu();
+                    break;
+                case PanelMode.DecorationAdjustForm:
+                    BuildDecorationAdjustForm();
+                    break;
                 case PanelMode.DeleteEventMenu:
                     BuildDeleteEventMenu();
                     break;
@@ -214,6 +223,11 @@ namespace AdofaiEventStudio
                 L("生成次数", "Count"),
                 Saved("genCount", "1"),
                 PropertyType.Int);
+            AddInputRow(
+                "textReadCount",
+                L("[]读取次数", "Bracket read count"),
+                Saved("textReadCount", "1"),
+                PropertyType.Int);
 
             AddParameterInputs(info);
 
@@ -254,6 +268,11 @@ namespace AdofaiEventStudio
                 "decoCount",
                 L("生成次数", "Count"),
                 Saved("decoCount", "1"),
+                PropertyType.Int);
+            AddInputRow(
+                "textReadCount",
+                L("[]读取次数", "Bracket read count"),
+                Saved("textReadCount", "1"),
                 PropertyType.Int);
             AddParameterInputs(info);
             AddButton(L("生成", "Generate"), ExecuteDecorationGenerate);
@@ -297,6 +316,11 @@ namespace AdofaiEventStudio
                 L("角度偏移增量", "Angle offset delta"),
                 Saved("angleExpr", "inc(0,5)"),
                 PropertyType.Int);
+            AddInputRow(
+                "textReadCount",
+                L("[]读取次数", "Bracket read count"),
+                Saved("textReadCount", "1"),
+                PropertyType.Int);
             AddButton(L("推广", "Propagate"), ExecutePropagate);
         }
 
@@ -331,25 +355,11 @@ namespace AdofaiEventStudio
                 }
                 else if (propertyInfo.type == PropertyType.Enum)
                 {
-                    AddInputRow(
+                    AddEnumInputRow(
                         propertyInfo.name,
                         PropertyLabel(propertyInfo),
                         Saved(propertyInfo.name, string.Empty),
-                        PropertyType.Enum);
-                    if (string.Equals(
-                        propertyInfo.enumType.Name,
-                        "Ease",
-                        StringComparison.OrdinalIgnoreCase))
-                    {
-                        AddNote(L(
-                            "例如：Linear, InOutSine, OutBounce",
-                            "e.g. Linear, InOutSine, OutBounce"));
-                    }
-                    else
-                    {
-                        AddNote(L("可填写：", "Allowed: ") +
-                            string.Join(", ", Enum.GetNames(propertyInfo.enumType)));
-                    }
+                        propertyInfo);
                 }
                 else if (propertyInfo.type == PropertyType.Bool)
                 {
@@ -362,12 +372,11 @@ namespace AdofaiEventStudio
                 }
                 else if (propertyInfo.type == PropertyType.Color)
                 {
-                    AddInputRow(
+                    AddColorInputRow(
                         propertyInfo.name,
                         PropertyLabel(propertyInfo),
                         Saved(propertyInfo.name, string.Empty),
-                        PropertyType.Color);
-                    AddNote(L("格式：RRGGBB，例如 ffffff", "Format: RRGGBB, e.g. ffffff"));
+                        propertyInfo);
                 }
                 else
                 {
@@ -387,6 +396,7 @@ namespace AdofaiEventStudio
             AddHeader(L("批量调整", "Batch Adjust"));
             AddButton(L("事件移动", "Move Events"), delegate { Goto(PanelMode.MoveEventMenu); });
             AddButton(L("参数批量调整", "Adjust Parameters"), delegate { Goto(PanelMode.ParamEventMenu); });
+            AddButton(L("批量调整装饰", "Adjust Decorations"), delegate { Goto(PanelMode.DecorationAdjustMenu); });
         }
 
         private static void BuildMoveEventMenu()
@@ -493,6 +503,45 @@ namespace AdofaiEventStudio
             AddButton(L("调整", "Adjust"), ExecuteParamAdjust);
         }
 
+        private static void BuildDecorationAdjustMenu()
+        {
+            _formKey = "deco-adjust-menu";
+            AddBackButton(PanelMode.AdjustMenu, L("返回", "Back"));
+            AddHeader(L("批量调整装饰：选择类型", "Adjust Decorations: Select Type"));
+            foreach (LevelEventType eventType in DecorationTypes)
+            {
+                LevelEventType captured = eventType;
+                AddButton(EventTitle(eventType), delegate
+                {
+                    _selectedEventType = captured;
+                    _formKey = "deco-adjust:" + captured;
+                    Goto(PanelMode.DecorationAdjustForm);
+                });
+            }
+        }
+
+        private static void BuildDecorationAdjustForm()
+        {
+            LevelEventInfo info = GetEventInfo(_selectedEventType);
+            AddBackButton(PanelMode.DecorationAdjustMenu, L("返回装饰列表", "Back to decoration list"));
+            AddHeader(L("批量调整装饰：", "Adjust Decorations: ") + EventTitle(_selectedEventType));
+            AddNote(L(
+                "只修改填写了内容的参数；v 表示当前值，i 表示匹配序号。",
+                "Only filled parameters are changed; v is the current value and i is the match index."));
+            AddInputRow(
+                "decoAdjustFloor",
+                L("装饰所在楼层", "Decoration floor"),
+                Saved("decoAdjustFloor", "0"),
+                PropertyType.Int);
+            AddInputRow(
+                "textReadCount",
+                L("[]读取次数", "Bracket read count"),
+                Saved("textReadCount", "1"),
+                PropertyType.Int);
+            AddParameterInputs(info);
+            AddButton(L("调整", "Adjust"), ExecuteDecorationAdjust);
+        }
+
         private static void BuildDeleteEventMenu()
         {
             _formKey = "delete-menu";
@@ -528,6 +577,7 @@ namespace AdofaiEventStudio
             {
                 int floor = GetInt("genFloor", 0);
                 int count = GetInt("genCount", 1);
+                int textReadCount = GetTextReadCount();
                 if (count <= 0)
                     throw new ArgumentException("生成次数必须大于 0。");
                 EditorIntegration.ReportDiagnostic(
@@ -545,8 +595,10 @@ namespace AdofaiEventStudio
                         GetEventInfo(_selectedEventType),
                         i,
                         count,
+                        textReadCount,
                         "genFloor",
-                        "genCount");
+                        "genCount",
+                        "textReadCount");
                     created++;
                 }
                 return created;
@@ -560,6 +612,7 @@ namespace AdofaiEventStudio
             {
                 int floor = GetInt("decoFloor", 0);
                 int count = GetInt("decoCount", 1);
+                int textReadCount = GetTextReadCount();
                 if (count <= 0)
                     throw new ArgumentException("生成次数必须大于 0。");
 
@@ -571,8 +624,10 @@ namespace AdofaiEventStudio
                         floor,
                         i,
                         count,
+                        textReadCount,
                         "decoFloor",
-                        "decoCount");
+                        "decoCount",
+                        "textReadCount");
                     _editor.decorations.Add(levelEvent);
                     created++;
                 }
@@ -591,6 +646,7 @@ namespace AdofaiEventStudio
                 string sourceTag = GetString("sourceTag", string.Empty).Trim();
                 string tagExpression = GetString("tagExpr", "a[1]").Trim();
                 string angleExpression = GetString("angleExpr", "inc(0,5)").Trim();
+                int textReadCount = GetTextReadCount();
                 if (count <= 0)
                     throw new ArgumentException("次数必须大于 0。");
                 if (tagExpression.Length == 0)
@@ -613,7 +669,7 @@ namespace AdofaiEventStudio
                 int created = 0;
                 for (int i = 0; i < count; i++)
                 {
-                    string tag = EvaluateText(tagExpression, i, count);
+                    string tag = EvaluateText(tagExpression, i, count, textReadCount);
                     int delta = EvaluateInt(angleExpression, i, count);
 
                     foreach (LevelEvent template in templates)
@@ -648,10 +704,17 @@ namespace AdofaiEventStudio
             int floor,
             int index,
             int total,
+            int textReadCount,
             params string[] skipKeys)
         {
             LevelEvent levelEvent = new LevelEvent(floor, _selectedEventType, info);
-            ApplyInputFields(levelEvent, info, index, total, skipKeys);
+            ApplyInputFields(
+                levelEvent,
+                info,
+                index,
+                total,
+                textReadCount,
+                skipKeys);
             return levelEvent;
         }
 
@@ -681,6 +744,7 @@ namespace AdofaiEventStudio
             LevelEventInfo info,
             int index,
             int total,
+            int textReadCount,
             params string[] skipKeys)
         {
             Dictionary<string, double> vectorComponents =
@@ -719,7 +783,11 @@ namespace AdofaiEventStudio
                         break;
                     case PropertyType.String:
                     case PropertyType.LongString:
-                        levelEvent[row.Key] = EvaluateText(text, index, total);
+                        levelEvent[row.Key] = EvaluateText(
+                            text,
+                            index,
+                            total,
+                            textReadCount);
                         break;
                     case PropertyType.Enum:
                         levelEvent[row.Key] = Enum.Parse(propertyInfo.enumType, text);
@@ -731,7 +799,11 @@ namespace AdofaiEventStudio
                         levelEvent[row.Key] = ParseTileNative(text, index, total);
                         break;
                     case PropertyType.File:
-                        levelEvent[row.Key] = EvaluateText(text, index, total);
+                        levelEvent[row.Key] = EvaluateText(
+                            text,
+                            index,
+                            total,
+                            textReadCount);
                         break;
                     case PropertyType.Color:
                         levelEvent[row.Key] = text;
@@ -1017,6 +1089,150 @@ namespace AdofaiEventStudio
             });
         }
 
+        private static void ExecuteDecorationAdjust()
+        {
+            CaptureInputs();
+            RunTransaction("调整装饰", delegate
+            {
+                int floor = GetInt("decoAdjustFloor", 0);
+                int textReadCount = GetTextReadCount();
+                List<LevelEvent> matches = _editor.decorations
+                    .Where(x => x != null &&
+                        x.eventType == _selectedEventType &&
+                        x.floor == floor)
+                    .ToList();
+                if (matches.Count == 0)
+                    throw new InvalidOperationException("该楼层没有所选类型的装饰。");
+
+                LevelEventInfo info = GetEventInfo(_selectedEventType);
+                for (int index = 0; index < matches.Count; index++)
+                {
+                    ApplyAdjustmentFields(
+                        matches[index],
+                        info,
+                        index,
+                        matches.Count,
+                        textReadCount);
+                }
+                return matches.Count;
+            });
+        }
+
+        private static void ApplyAdjustmentFields(
+            LevelEvent levelEvent,
+            LevelEventInfo info,
+            int index,
+            int total,
+            int textReadCount)
+        {
+            Dictionary<string, string> vectorExpressions =
+                new Dictionary<string, string>();
+
+            foreach (InputRow row in _rows)
+            {
+                if (row.Key == "decoAdjustFloor" || row.Key == "textReadCount")
+                    continue;
+
+                string text = row.GetText();
+                if (string.IsNullOrEmpty(text))
+                    continue;
+
+                if (row.Key.EndsWith(".x", StringComparison.OrdinalIgnoreCase) ||
+                    row.Key.EndsWith(".y", StringComparison.OrdinalIgnoreCase))
+                {
+                    vectorExpressions[row.Key] = text;
+                    continue;
+                }
+
+                ADOFAI.PropertyInfo propertyInfo;
+                if (!info.propertiesInfo.TryGetValue(row.Key, out propertyInfo))
+                    continue;
+
+                object current;
+                if (!levelEvent.GetData().TryGetValue(row.Key, out current) ||
+                    current == null)
+                {
+                    current = propertyInfo.value_default;
+                }
+
+                switch (propertyInfo.type)
+                {
+                    case PropertyType.Int:
+                        levelEvent[row.Key] = (int)EvaluateNumber(
+                            text,
+                            index,
+                            total,
+                            Convert.ToDouble(current, CultureInfo.InvariantCulture));
+                        break;
+                    case PropertyType.Float:
+                        levelEvent[row.Key] = (float)EvaluateNumber(
+                            text,
+                            index,
+                            total,
+                            Convert.ToDouble(current, CultureInfo.InvariantCulture));
+                        break;
+                    case PropertyType.Bool:
+                        levelEvent[row.Key] = bool.Parse(text.Trim());
+                        break;
+                    case PropertyType.String:
+                    case PropertyType.LongString:
+                        levelEvent[row.Key] = EvaluateText(
+                            text,
+                            index,
+                            total,
+                            textReadCount);
+                        break;
+                    case PropertyType.Enum:
+                        levelEvent[row.Key] = Enum.Parse(propertyInfo.enumType, text);
+                        break;
+                    case PropertyType.Vector2:
+                        levelEvent[row.Key] = ParseVector2(text);
+                        break;
+                    case PropertyType.Tile:
+                        levelEvent[row.Key] = ParseTileNative(text, index, total);
+                        break;
+                    case PropertyType.File:
+                        levelEvent[row.Key] = EvaluateText(
+                            text,
+                            index,
+                            total,
+                            textReadCount);
+                        break;
+                    case PropertyType.Color:
+                        levelEvent[row.Key] = text;
+                        break;
+                    default:
+                        levelEvent[row.Key] = JsonTokenToNative(JToken.Parse(text.Trim()));
+                        break;
+                }
+                EnableField(levelEvent, row.Key);
+            }
+
+            foreach (string componentKey in vectorExpressions.Keys.ToList())
+            {
+                string baseKey = componentKey.Substring(0, componentKey.Length - 2);
+                ADOFAI.PropertyInfo propertyInfo = info.propertiesInfo[baseKey];
+                Vector2 vector = AsVector2(propertyInfo.value_default);
+                object currentObject;
+                if (levelEvent.GetData().TryGetValue(baseKey, out currentObject) &&
+                    currentObject is Vector2)
+                {
+                    vector = (Vector2)currentObject;
+                }
+                string xKey = baseKey + ".x";
+                string yKey = baseKey + ".y";
+                string expression;
+                double x = vector.x;
+                if (vectorExpressions.TryGetValue(xKey, out expression))
+                    x = EvaluateNumber(expression, index, total, vector.x);
+                double y = vector.y;
+                if (vectorExpressions.TryGetValue(yKey, out expression))
+                    y = EvaluateNumber(expression, index, total, vector.y);
+                levelEvent[baseKey] = new Vector2((float)x, (float)y);
+                EnableField(levelEvent, baseKey);
+            }
+        }
+
         private static void ExecuteDelete()
         {
             CaptureInputs();
@@ -1177,38 +1393,61 @@ namespace AdofaiEventStudio
 
         private static string EvaluateText(string text, int index)
         {
-            return EvaluateText(text, index, 0);
+            return EvaluateText(text, index, 0, 1);
         }
 
         private static string EvaluateText(string text, int index, int total)
         {
+            return EvaluateText(text, index, total, 1);
+        }
+
+        private static string EvaluateText(
+            string text,
+            int index,
+            int total,
+            int readCount)
+        {
             string trimmed = text.Trim();
-            int open = trimmed.IndexOf('[');
-            int close = open < 0 ? -1 : trimmed.IndexOf(']', open + 1);
-            if (open < 0 || close < open + 2)
+            if (readCount <= 0)
                 return text;
 
-            string expression = trimmed.Substring(open + 1, close - open - 1);
-            int start;
-            if (!int.TryParse(
-                expression,
-                NumberStyles.Integer,
-                CultureInfo.InvariantCulture,
-                out start))
+            StringBuilder result = new StringBuilder();
+            int position = 0;
+            int processed = 0;
+            while (processed < readCount)
             {
-                double result = NumericExpression.Evaluate(
+                int open = trimmed.IndexOf('[', position);
+                int close = open < 0 ? -1 : trimmed.IndexOf(']', open + 1);
+                if (open < 0 || close < open + 2)
+                    break;
+
+                result.Append(trimmed.Substring(position, open - position));
+                string expression = trimmed.Substring(open + 1, close - open - 1);
+                int start;
+                if (int.TryParse(
                     expression,
-                    index,
-                    total,
-                    0);
-                return trimmed.Substring(0, open) +
-                    FormatTextNumber(result) +
-                    trimmed.Substring(close + 1);
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out start))
+                {
+                    result.Append((start + index).ToString(CultureInfo.InvariantCulture));
+                }
+                else
+                {
+                    double value = NumericExpression.Evaluate(
+                        expression,
+                        index,
+                        total,
+                        0);
+                    result.Append(FormatTextNumber(value));
+                }
+
+                position = close + 1;
+                processed++;
             }
 
-            return trimmed.Substring(0, open) +
-                (start + index).ToString(CultureInfo.InvariantCulture) +
-                trimmed.Substring(close + 1);
+            result.Append(trimmed.Substring(position));
+            return result.ToString();
         }
 
         private static string FormatTextNumber(double value)
@@ -1428,6 +1667,129 @@ namespace AdofaiEventStudio
             _rows.Add(new InputRow(key, inputControl.inputField, PropertyType.String));
         }
 
+        private static void AddEnumInputRow(
+            string key,
+            string label,
+            string value,
+            ADOFAI.PropertyInfo propertyInfo)
+        {
+            ADOFAI.Property row = CreateRow(label);
+            if (row.controlContainer == null)
+            {
+                EditorIntegration.ReportStatus("枚举行缺少控制容器: " + key);
+                return;
+            }
+
+            GameObject controlObject = UnityEngine.Object.Instantiate(
+                RDConstants.data.prefab_controlToggle);
+            controlObject.transform.SetParent(row.controlContainer, false);
+            PropertyControl_Toggle control =
+                controlObject.GetComponent<PropertyControl_Toggle>();
+            if (control == null)
+            {
+                EditorIntegration.ReportStatus("枚举下拉控件缺失: " + key);
+                return;
+            }
+
+            control.propertyInfo = propertyInfo;
+            control.propertiesPanel = _panel;
+            control.propertyTransform = control.GetComponent<RectTransform>();
+            List<string> names = Enum.GetNames(propertyInfo.enumType).ToList();
+            string enumTypeString = propertyInfo.enumTypeString;
+            bool localizeEnumStrings = true;
+            if (propertyInfo.enumType != null &&
+                string.Equals(
+                    propertyInfo.enumType.Name,
+                    "Ease",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                enumTypeString = "EventStudioEase";
+                localizeEnumStrings = false;
+                names = names
+                    .Where(x => !string.Equals(x, "Unset", StringComparison.OrdinalIgnoreCase))
+                    .Where(x => !x.StartsWith("INTERNAL_", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+            control.EnumSetup(
+                enumTypeString,
+                names,
+                localizeEnumStrings,
+                null,
+                propertyInfo.browsable);
+            control.Setup(true);
+
+            TweakableDropdown dropdown = control.dropdown;
+            if (!string.IsNullOrEmpty(value) && dropdown != null)
+            {
+                TweakableDropdownItem match = dropdown.items.FirstOrDefault(
+                    item => item != null &&
+                        string.Equals(item.value, value, StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                    dropdown.SelectItem(match);
+            }
+
+            TMP_InputField enumInput =
+                dropdown == null ? null : dropdown.inputField;
+            _rows.Add(new InputRow(
+                key,
+                enumInput,
+                PropertyType.Enum,
+                delegate
+                {
+                    if (dropdown != null &&
+                        dropdown.selectedItem != null &&
+                        (dropdown.noItem == null || dropdown.selectedItem != dropdown.noItem) &&
+                        !string.IsNullOrEmpty(dropdown.selectedItem.value))
+                    {
+                        return dropdown.selectedItem.value;
+                    }
+                    return string.Empty;
+                }));
+        }
+
+        private static void AddColorInputRow(
+            string key,
+            string label,
+            string value,
+            ADOFAI.PropertyInfo propertyInfo)
+        {
+            ADOFAI.Property row = CreateRow(label);
+            if (row.controlContainer == null)
+            {
+                EditorIntegration.ReportStatus("颜色行缺少控制容器: " + key);
+                return;
+            }
+
+            GameObject controlObject = UnityEngine.Object.Instantiate(
+                RDConstants.data.prefab_controlColor);
+            controlObject.transform.SetParent(row.controlContainer, false);
+            PropertyControl_Color control =
+                controlObject.GetComponent<PropertyControl_Color>();
+            if (control == null)
+            {
+                EditorIntegration.ReportStatus("颜色控件缺失: " + key);
+                return;
+            }
+
+            control.propertyInfo = propertyInfo;
+            control.propertiesPanel = _panel;
+            control.propertyTransform = control.GetComponent<RectTransform>();
+            control.Setup(true);
+            if (!string.IsNullOrEmpty(value))
+                control.text = value;
+
+            TMP_InputField colorInput =
+                control.colorField == null ? null : control.colorField.field;
+            _rows.Add(new InputRow(
+                key,
+                colorInput,
+                PropertyType.Color,
+                delegate
+                {
+                    return control.text ?? string.Empty;
+                }));
+        }
+
         private static string ShowFilePicker(string current, FileType fileType)
         {
             if (fileType == FileType.Audio)
@@ -1542,6 +1904,20 @@ namespace AdofaiEventStudio
                 throw new ArgumentException(key + " 必须是整数。");
             }
             return value;
+        }
+
+        private static int GetTextReadCount()
+        {
+            int value;
+            if (!int.TryParse(
+                GetString("textReadCount", "1"),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out value))
+            {
+                return 1;
+            }
+            return Math.Max(0, value);
         }
 
         private static LevelEventInfo GetEventInfo(LevelEventType eventType)

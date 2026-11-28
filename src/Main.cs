@@ -65,7 +65,7 @@ namespace AdofaiEventStudio
             _mainScroll = GUILayout.BeginScrollView(_mainScroll, GUILayout.ExpandHeight(true));
 
             DrawLanguageBar();
-            GUILayout.Label(L("ADOFAI 事件工坊 1.0.0", "ADOFAI Event Studio 1.0.0"));
+            GUILayout.Label(L("ADOFAI 事件工坊 1.0.1", "ADOFAI Event Studio 1.0.1"));
             GUILayout.Label(L("作者：橚", "Author: 橚"));
             GUILayout.Label(L(
                 "进入关卡编辑器后，左侧页签可直接批量处理当前关卡。",

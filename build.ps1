@@ -131,7 +131,7 @@ if (-not $SkipTests) {
     }
 }
 
-$zipPath = Join-Path $outputsDir "AdofaiEventStudio-1.0.0.zip"
+$zipPath = Join-Path $outputsDir "AdofaiEventStudio-1.0.1.zip"
 Compress-Archive -Path (Join-Path $distDir "*") -DestinationPath $zipPath -Force
 
 Write-Host "DLL: $assemblyPath"
